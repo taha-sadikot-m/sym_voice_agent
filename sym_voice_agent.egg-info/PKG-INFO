@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: sym-voice-agent
+Version: 0.1.0
+Summary: LiveKit voice agent for SYM debate and interview features
+Requires-Python: >=3.10
+Requires-Dist: livekit-agents[deepgram,google,silero,turn-detector]~=1.4
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: google-genai>=1.56.0
+Requires-Dist: langchain-google-genai>=4.2.1
+Requires-Dist: langchain-core>=1.2.6
+Requires-Dist: python-decouple>=3.8
