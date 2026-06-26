@@ -18,6 +18,18 @@ def _env(name: str, default: str = "") -> str:
     return os.getenv(name, default).strip()
 
 
+def _env_int(name: str) -> int | None:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return None
+    return int(raw.strip())
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = _env(name, str(default))
+    return float(raw) if raw else default
+
+
 @dataclass(frozen=True)
 class Settings:
     livekit_url: str
@@ -31,6 +43,8 @@ class Settings:
     gemini_model: str
     django_api_url: str
     voice_agent_name: str
+    num_idle_processes: int | None
+    load_threshold: float
 
     @classmethod
     def load(cls) -> "Settings":
@@ -47,6 +61,8 @@ class Settings:
             gemini_model=_env("GEMINI_MODEL", "gemini-2.5-flash"),
             django_api_url=_env("DJANGO_API_URL", "http://127.0.0.1:8000/api/v1").rstrip("/"),
             voice_agent_name=_env("VOICE_AGENT_NAME", "sym-voice-agent"),
+            num_idle_processes=_env_int("VOICE_AGENT_NUM_IDLE_PROCESSES"),
+            load_threshold=_env_float("VOICE_AGENT_LOAD_THRESHOLD", 0.75),
         )
 
 

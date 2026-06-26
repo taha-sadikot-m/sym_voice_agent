@@ -20,5 +20,7 @@ node_modules/
 # Build output
 dist/
 
+__pycache__/
 
+src/__pycache__
 

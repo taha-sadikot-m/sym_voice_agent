@@ -36,11 +36,9 @@ Frontend: Poll /voice/sessions/{mode}/{id}/status/ → load results from DB
 
 
 
-**Important:** Do not run two workers with the same `VOICE_AGENT_NAME` (e.g. local `python -m src.main dev` **and** a LiveKit Cloud deployment). That spawns duplicate agents in one room and you will hear overlapping voices.
+**Important:** Do not run two workers with the same `VOICE_AGENT_NAME` (e.g. local worker **and** a LiveKit Cloud Agents deployment). Use `sym-voice-agent-local` for local dev so cloud deployments do not steal dispatches.
 
-
-
-Agent dispatch uses **only** the participant token `room_config` (`RoomAgentDispatch`). Django does not call `create_dispatch` separately.
+Agent dispatch: Django calls `create_dispatch` explicitly per session room, with participant token `room_config` as a join fallback.
 
 
 
@@ -96,39 +94,39 @@ python -m livekit.agents download-files
 
 ## Local development (3 processes)
 
-
-
 ```bash
-
 # Terminal 1 — Django
-
 cd backend && python manage.py runserver
 
-
-
 # Terminal 2 — Frontend
-
 cd frontend && npm run dev
 
-
-
 # Terminal 3 — Voice agent (only one worker for VOICE_AGENT_NAME)
-
 cd voice-agent && cp .env.example .env.local
-
 pip install -e .
-
 python -m livekit.agents download-files
 
-python -m src.main dev
+# Single-user debugging:
+python -m src.main dev --log-level=debug
 
+# Multiple concurrent local users (2+ debates at once):
+# Set VOICE_AGENT_NUM_IDLE_PROCESSES=2 in .env.local, then:
+python -m src.main start
 ```
 
-
+Use the **same** `VOICE_AGENT_NAME` in `backend/.env` and `voice-agent/.env.local`. For local dev, prefer `sym-voice-agent-local` so production/cloud workers do not receive your dispatches.
 
 Credentials can live in `.env` or `.env.local` (`.env.local` overrides).
 
+## Concurrent sessions
 
+Each debate session gets its own LiveKit room (`sym-voice-debate-{uuid}`). One worker process can handle multiple rooms until `VOICE_AGENT_LOAD_THRESHOLD` is reached.
+
+| Users | Suggested config |
+|-------|------------------|
+| 1 (debug) | `python -m src.main dev` |
+| 2–4 local | `VOICE_AGENT_NUM_IDLE_PROCESSES=2` + `python -m src.main start` |
+| Production | LiveKit Cloud Agents deployment or multiple worker replicas |
 
 ## Environment
 
@@ -140,8 +138,9 @@ Credentials can live in `.env` or `.env.local` (`.env.local` overrides).
 
 | `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | LiveKit Cloud |
 
-| `VOICE_AGENT_NAME` | Must match backend (`sym-voice-agent`); worker registers with this name |
-
+| `VOICE_AGENT_NAME` | Must match backend; use `sym-voice-agent-local` for local dev |
+| `VOICE_AGENT_NUM_IDLE_PROCESSES` | Pre-warmed job processes for concurrent sessions (e.g. `2`) |
+| `VOICE_AGENT_LOAD_THRESHOLD` | Max worker load before rejecting jobs (default `0.75`) |
 | `DEEPGRAM_API_KEY` | STT (`en-IN`) + TTS (`aura-2-draco-en`) |
 
 | `GEMINI_API_KEY` | Gemini 2.5 Flash (all realtime replies) |
@@ -196,7 +195,7 @@ Backend also needs `VOICE_FINALIZE_SYNC=true` in DEBUG (default) so analysis run
 
 | Agent keeps talking after leave | Orphan `<audio>` elements — frontend hook removes them on disconnect; restart tab if needed |
 
-| No agent joins | Worker not running, or `VOICE_AGENT_NAME` mismatch between backend and worker |
+| No agent joins | Worker not running, `VOICE_AGENT_NAME` mismatch, or cloud deployment stealing jobs — run `python manage.py voice_dispatch_status --prefix sym-voice` |
 
 | No transcript after end | Finalize failed — check worker logs and Django `voice_finalize_status` in session metadata |
 
